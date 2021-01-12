@@ -1,0 +1,14 @@
+version: "3.7"
+
+services:
+  app:
+    image: machineplay/gcc10-standard-env
+    command: sh -c "/bin/bash"
+    container_name: gcc10-dev-env
+    network_mode: "host"
+    working_dir: /root
+    volumes:
+      - ./:/root/app
+    environment:
+      DEV_ENV: gcc10.3-test
+    tty: true
