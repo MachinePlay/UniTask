@@ -94,11 +94,12 @@ TEST_F(TestFrame, test_TaskDataMap)  {
 TEST_F(TestFrame, test_Task) {
     const std::string task_conf = "../conf/task.yaml";
     auto conf = YAML::LoadFile(task_conf.c_str());
-
+    std::cout << conf["task_name"].as<std::string>() << std::endl;
     RecallTask recall_task;
     recall_task.init(conf);
     std::unique_ptr<std::string> ptr(new std::string("hello"));
     void *raw_ptr = static_cast<void*>(ptr.get());
+    std::cout << "here" << std::endl;
     recall_task.run(raw_ptr);
     std::string expected_str = "helloworld";
     ASSERT_EQ(conf["task_name"].as<std::string>(), recall_task.get_task_name());

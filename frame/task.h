@@ -104,7 +104,9 @@ public:
     * @note BaseTaskLoader::load will call UnitTask::init for all subclass of UnitTask.
     * so there is no need to init each UnitTask subclass manaunlly.
     */
-   virtual bool init(const YAML::Node &conf_info) = 0;
+   virtual bool init(const YAML::Node &conf_info) {
+        return BaseTask::init(conf_info);
+   }
 
 
     /**
@@ -131,7 +133,9 @@ public:
     * @note BaseTaskLoader::load will call SerialTask::init for all subclass of UnitTask.
     * so there is no need to init each UnitTask subclass manaunlly.
     */
-   virtual bool init(const YAML::Node &conf_info) = 0;
+    virtual bool init(const YAML::Node &conf_info) {
+        return BaseTask::init(conf_info);
+    }
 
 
     /**
@@ -158,7 +162,9 @@ public:
     * @note BaseTaskLoader::load will call ParallelTask::init for all subclass of UnitTask.
     * so there is no need to init each UnitTask subclass manaunlly.
     */
-   virtual bool init(const YAML::Node &conf_info) const = 0;
+    virtual bool init(const YAML::Node &conf_info) {
+        return BaseTask::init(conf_info);
+    }
 
 
     /**
