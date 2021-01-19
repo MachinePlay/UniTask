@@ -1,5 +1,5 @@
 #pragma once
-#include "../utils/common_log.h"
+#include "utils/common_log.h"
 #include "yaml-cpp/yaml.h"
 #include <string>
 #include <unordered_map>
@@ -11,10 +11,10 @@ namespace frame {
 
 /* task type. */
 enum TaskType {
-    UNIT_TASK       = 0;
-    SERIAL_TASK     = 1;
-    PARALLEL_TASK   = 2;
-    DEFAULT_TASK    = 3;
+    UNIT_TASK       = 0,
+    SERIAL_TASK     = 1,
+    PARALLEL_TASK   = 2,
+    DEFAULT_TASK    = 3,
 };
 
 
@@ -36,9 +36,9 @@ public:
     * @param conf_info yaml node info, store the task config
     * @return bool true : ok, otherwise false;
     */
-    virtual bool init(const Yaml::Node &conf_info) {
+    virtual bool init(const YAML::Node &conf_info) {
         try {
-            _task_name = conf_info['task_name'].as<std::string>();
+            _task_name = conf_info["task_name"].as<std::string>();
         } catch (const std::exception &e) {
             ERR_LOG << e.what() << std::endl;
             return false;
@@ -56,7 +56,7 @@ public:
     * @param data the task data.(TaskDataMap*)
     * @return bool true: execute ok, false : failed
     */
-    virtual run(void *data) const = 0;
+    virtual bool run(void *data) const = 0;
 
     /**
     * retrieve task name
@@ -104,7 +104,7 @@ public:
     * @note BaseTaskLoader::load will call UnitTask::init for all subclass of UnitTask.
     * so there is no need to init each UnitTask subclass manaunlly.
     */
-   virtual bool init(const YAML::Node &conf_info) const = 0;
+   virtual bool init(const YAML::Node &conf_info) = 0;
 
 
     /**
@@ -131,7 +131,7 @@ public:
     * @note BaseTaskLoader::load will call SerialTask::init for all subclass of UnitTask.
     * so there is no need to init each UnitTask subclass manaunlly.
     */
-   virtual bool init(const YAML::Node &conf_info) const = 0;
+   virtual bool init(const YAML::Node &conf_info) = 0;
 
 
     /**
