@@ -104,7 +104,7 @@ public:
     * @note BaseTaskLoader::load will call UnitTask::init for all subclass of UnitTask.
     * so there is no need to init each UnitTask subclass manaunlly.
     */
-   virtual bool init(const YAML::Node &conf_info) {
+   virtual bool init(const YAML::Node &conf_info) override{
         return BaseTask::init(conf_info);
    }
 
@@ -176,6 +176,14 @@ public:
 };
 
 
+/** 
+ * @class TaskManager.
+ * manage the task map, store the task rawtype.
+ **/
+template <typename UnitTaskCreator>
+class TaskManager {
+
+}
 
 
 } // end namespace frame
