@@ -1,10 +1,12 @@
 #pragma once
 #include "utils/common_log.h"
 #include "yaml-cpp/yaml.h"
+#include "double_buffer.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <stdint.h>
 
 namespace inf{
 namespace frame {
@@ -175,6 +177,90 @@ public:
    virtual bool run(void *data) const = 0;
 };
 
+using TaskMap = std::unordered_map<std::string, TaskPtr>;
+using TaskMapPtr = std::unique_ptr<TaskMap>;
+/** 
+ * @class TaskLoader.
+ * double buffer task loader,
+ * TODO: maybe should be defined as inner class of Manager?
+ **/
+template <typename UnitTaskCreator>
+class TaskLoader {
+public:
+    /* ctor. */
+    TaskLoader() = default;
+    virtual ~TaskLoader() = default;
+
+    /* init function, read file from yaml. */
+    bool init(const std::string &file_name) {
+        if (file_name.empty()) {
+            return false;
+        }
+        _config_file_name = file_name;
+        //whether the file exists
+        struct stat file_stat;
+        if (stat(file_name.c_str(), &file_stat) != 0) {
+            return false;
+        }
+        return true;
+    }
+
+    /* config file name, user relative path*/
+    std::string get_load_file_name() const {
+        return _config_file_name;
+    }
+
+    /* load funtion, always load latest file, and parse data. */
+    TaskMapPtr load() {
+        // return YAML::LoadFile(_config_file_name.c_str());
+        try {
+            UnitTaskCreator task_creator;
+            TaskMapPtr task_table(new TaskMap());
+            
+            YAML::Node conf = YAML::LoadFile(_config_file_name.c_str());
+            for (int64_t i = 0; i < conf.size(); ++i) {
+                std::string task_alias_name = conf["task_alias_name"].as<std::string>();
+                auto it = task_table->find(task_alias_name);
+                if (it != task_table->end()) {
+                    ERR_LOG << "Duplicate task alias name, alias : " << task_alias_name << std::endl;
+                    return TaskMapPtr(nullptr);
+                }
+                
+                // task can be create.
+                TaskPtr task_ptr = task_creator.create(conf[i]);
+                if (!task_ptr) {
+                    ERR_LOG << "Create Task Failed, alias : << task_alias_name" << std::endl;
+                    return TaskMapPtr(nullptr);
+                }
+
+                //task init by it's own conf
+                if (!task_ptr->init(conf[i])) {
+                    ERR_LOG << "Initialize Task Failed, alias :  << task_alias_name" << std::endl;
+                    return TaskMapPtr(nullptr); 
+                }
+            }
+
+            return task_table;
+        } catch (const std::exception &e) {
+            ERR_LOG << e.what() << std::endl;
+            return TaskMapPtr(nullptr);
+        } catch (...) {
+            ERR_LOG << "Unknown Error" << std::endl;
+        }
+        
+
+
+    }
+
+    
+private:
+    /* none copy. */
+    TaskLoader(const TaskLoader &rhs) = delete;
+    TaskLoader &operator=(const TaskLoader &rhs) = delete;
+    std::string _config_file_name {""};
+};
+
+
 
 /** 
  * @class TaskManager.
@@ -182,8 +268,21 @@ public:
  **/
 template <typename UnitTaskCreator>
 class TaskManager {
+public:
+    /* singleton. */
+    static TaskManager& instance() {
+        static TaskManager instance;
+        return instance;
+    }
 
-}
+
+
+
+
+};
+
+
+
 
 
 } // end namespace frame
