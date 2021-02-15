@@ -70,6 +70,7 @@ private:
     /* none copy. */
     Factory(const Factory &lhs) = delete;
     Factory &opertor=(const Factory &lhs) = delete;
+    
     /* registered Creator table. */
     CreatorTable _registered_table;
 };

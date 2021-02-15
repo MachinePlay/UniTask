@@ -212,13 +212,13 @@ public:
 
     /* load funtion, always load latest file, and parse data. */
     TaskMapPtr load() {
-        // return YAML::LoadFile(_config_file_name.c_str());
         try {
             UnitTaskCreator task_creator;
             TaskMapPtr task_table(new TaskMap());
             
             YAML::Node conf = YAML::LoadFile(_config_file_name.c_str());
             for (int64_t i = 0; i < conf.size(); ++i) {
+                //create by alias name, but registered name is conf["task_name"]
                 std::string task_alias_name = conf["task_alias_name"].as<std::string>();
                 auto it = task_table->find(task_alias_name);
                 if (it != task_table->end()) {
@@ -226,7 +226,7 @@ public:
                     return TaskMapPtr(nullptr);
                 }
                 
-                // task can be create.
+                // task can be create by conf, creator's proxy mode.
                 TaskPtr task_ptr = task_creator.create(conf[i]);
                 if (!task_ptr) {
                     ERR_LOG << "Create Task Failed, alias : << task_alias_name" << std::endl;
@@ -238,6 +238,8 @@ public:
                     ERR_LOG << "Initialize Task Failed, alias :  << task_alias_name" << std::endl;
                     return TaskMapPtr(nullptr); 
                 }
+
+                task_table->insert(std::make_pair(task_alias_name, std::move(task_ptr)));
             }
 
             return task_table;
@@ -248,8 +250,6 @@ public:
             ERR_LOG << "Unknown Error" << std::endl;
         }
         
-
-
     }
 
     
@@ -257,6 +257,8 @@ private:
     /* none copy. */
     TaskLoader(const TaskLoader &rhs) = delete;
     TaskLoader &operator=(const TaskLoader &rhs) = delete;
+    
+    /* conf filename. */
     std::string _config_file_name {""};
 };
 
@@ -275,9 +277,51 @@ public:
         return instance;
     }
 
+    /* init task manager. */
+    bool init(const std::string &file_path, const std::string &comand) {
+        try {
+            TaskLoaderPtr task_loader_ptr = std::make_unique<TaskLoader<UnitTaskCreator>>();
+            //bind loader to conf
+            task_loader_ptr->init(file_path);
+            _task_double_buffer_ptr = TaskDoubleBuffer(std::move(task_loader_ptr));
+            _task_double_buffer_ptr->init();
+        } catch (const std::exception &e) {
+            ERR_LOG << e.what() << std::endl;
+            return false;
+        } catch (...) {
+            ERR_LOG << "Unknown Error" << std::endl;
+            return false;
+        }
+    }
 
+    /* get task instance by alias name. */
+    const TaskPtr& get_task(const std::string& task_alias_name) const {
+        const TaskMapPtr task_map = _task_double_buffer_ptr->get_current();
+        if (!task_map) {
+            ERR_LOG << " _task_double_buffer_ptr->get_current() Failed!" << std::endl;
+            return _invalid_ptr;
+        }
+        auto it = task_map->find(task_alias_name);
+        if (it == task_map->end()) {
+            return _invalid_ptr;
+        }
 
+        return it->second;
+    }
 
+private:
+    /* loader unique ptr. */
+    using TaskLoaderPtr = std::unique_ptr<TaskLoader<UnitTaskCreator>>;
+    /* double buffer of TaskMapPtr. */
+    using TaskDoubleBuffer = ::inf::utils::DoubleData<TaskMapPtr, TaskLoader<UnitTaskCreator>>;
+    using TaskDoubelBufferPtr = std::unique_ptr<TaskDoubleBuffer>;
+
+    
+    /* invalid ptr. */
+    TaskPtr _invalid_ptr;
+    
+    /* task double buffer ptr. */
+    TaskDoubelBufferPtr _task_double_buffer_ptr;
 
 };
 
