@@ -25,6 +25,8 @@ public:
     * @param 
     * @return 
     */
+   bool schedule(void *data);
+
 
 
 private:
