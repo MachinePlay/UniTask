@@ -1,5 +1,8 @@
 # UniTask - 推荐策略工程框架
-[![UnitTest](https://github.com/MachinePlay/DemoServer/actions/workflows/docker-image.yml/badge.svg)](https://github.com/MachinePlay/DemoServer/actions/workflows/docker-image.yml)
+[![UnitTest](https://github.com/MachinePlay/DemoServer/actions/workflows/docker-image.yml/badge.svg)](https://github.com/MachinePlay/DemoServer/actions/workflows/docker-image.yml)  
+
+
+
 谷歌的[`Live at Head`](https://abseil.io/about/philosophy)思想，是一个非常不错的想法，我们崇尚尽可能地去尝试使用最新版本的依赖和功能，推荐使用最新master主干提交版本。  
 Project now follows the Abseil Live at Head philosophy. We recommend using the latest commit in the master branch in your projects.
 
@@ -15,11 +18,194 @@ C++的依赖管理一直以来是一个问题，项目使用CMake管理依赖，
 ![基于UniTask推荐框架的最佳实践](conf/unitask.png)
 
 - 通常推荐系统架构包括召回、粗排、精排、重排，业务层组成，常见的微服务架构中，各阶段通常由多个微服务组成
+
+
+
+# 快速开始
+
+UniTask是一套策略框架，适合推荐、搜索、广告等复杂业务场景，通过可配置的算子，实现业务算子热加载、串行、链式和并行计算
+
 - 单个服务中整体架构通常是经过各种业务策略算子，最终输出，业务策略算子通常是对全局请求进行排序、提权、打压、打分、请求特征服务、请求ModelServer、请求补充Meta信息等等操作，每个算子都可以看作是对该次请求全局数据的一个Operator，在UniTask中，我们将业务算子称为Task。
 - Flow是一份用户请求，通常会根据业务场景、抽样被抽样到不同的业务流中，一个Flow绑定一个Scheduler
 - Scheduler是一系列算子的集合，即该模块一次推荐请求要通过的Task的集合
 
-业务流量通过RPC请求进入服务后，进入业务线程，根据业务场景、抽样分流成不同的Flow，Flow绑定Scheduler，调度具体的业务算子，不同的scheduler可以通过task的不同组合实现线上流量的A/B Test，同一个task可以通过不同业务配置和别名（aliasname）在不同的scheduler中复用，实现高扩展性。
+## 创建Task
+
+首先继承Task，业务写自己的task算子，可以在task中处理数据、发请求、或者一切业务相关的事情
+
+一个典型的算子可能是这样，我们写一个特征服务Feature算子：
+
+```c++
+class FeatureTask : public UnitTask {
+public:
+			virtual bool init(const YAML::Node &conf) {
+        //初始化task,可以在这里初始化配置、业务组件等等
+        //读一些配置,做初始化
+        return true;
+      }
+  
+  		virtual	bool run(void* data) {
+        //执行业务逻辑（对结果进行操作
+        //传入的全局上下文数据data保存了所有需要的数据unique_ptr，为了能够在同一个一个数据结构里放下任何数据类型，通过泛型 + 继承，所有的泛型数据都需要继承TaskData的基类，然后通过基类指针拿到泛型指针，存取数据都是泛型接口
+       
+        //例如现在要创建一个召回队列
+        //将data转换为TaskDataMap
+        ::inf::frame::TaskDataMap<std::string> *inner_dat
+            static_cast<::inf::frame::TaskDataMap<std::string>*>(task_data);
+      	
+        //获取用户特征
+        ::inf::frame::PersonalFeatureRequest * feature_data_req = 
+          inner_data->find<::inf::frame::PersonalFeatureRequest>(USER_FEATURE_REQ_KEY);
+        
+        ::inf::frame::PersonalFeatureResponse * feature_data_resp = 
+          inner_data->find<::inf::frame::PersonalFeatureResponset>(USER_FEATURE_RESP_KEY);
+        
+        //具体的业务
+        get_user_feature(feature_data_resp);
+        
+        punish_user_feature(feature_data_resp);
+        
+      }
+  
+  		//假设这里是业务处理，惩罚特征对低质数据进行打压
+  		int punish_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
+					//do something
+      }
+  
+  		int get_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
+        //这里去发起RPC请求,请求一些服务，拿一些数据
+        feature_prx_ptr = ::inf::rpc::BackendManager::instance().get_feature_server();
+        Response feature_resp;
+        auto ret = feature_prx_ptr->async(resp, feature_resp);
+        return true;
+      }
+private:
+  const std::string 			USER_FEATURE_REQ_KEY = "USER_FEATURE_REQ_KEY";
+  const std::string 			USER_FEATURE_REQ_KEY = "USER_FEATURE_REQ_KEY";
+  feature_agent_proxy		  feature_prx_ptr;
+}
+```
+
+接下来是其他算子，曝光去重算子`ExposeTask`，多路召回算子`MultiRecallTask`,  rank算子`RankTask`,挖掘算子`ResonMiningTask`，业务算子`ATask`,`BTask`等等
+
+业务算子实现完后，在抽象工厂里注册，为每个Task注册一个工厂和名字，可以使我们通过注册的名字获取Task实例
+
+```c++
+#include "task_register_manager.h"
+
+namespace inf {
+namespace frame {
+
+virtual bool RecTaskFactory::init() {
+    //register task creator name here
+    const std::string USER_FEATURE_TASK   = "user_feature_task";
+    const std::string COMMON_EXPOSE_TASK  = "expose_task";
+    const std::string RECALL_TASK 				= "recall_task";
+    const std::string RANK_TASK 				  = "rank_task";
+    const std::string MINING_TASK         = "mining_task";
+
+    // create task, and implement the creator
+    _register<StandardTaskCreator<FeatureTask>>(USER_FEATURE_TASK);
+    _register<StandardTaskCreator<ExposeTask>>(COMMON_EXPOSE_TASK);
+    _register<StandardTaskCreator<MultiRecallTask>>(RECALL_TASK);
+    _register<StandardTaskCreator<RankTask>>(RANK_TASK);
+    _register<StandardTaskCreator<ResonMiningTask>>(MINING_TASK);
+    return true;
+};
+
+} // end namespace frame
+} // end namespace inf
+```
+
+框架注册好的task可以通过配置使同一个task拥有不同配置实例化的实例
+
+- 例如user_feature_task是获取用户特征，做一些特征匹配、降权提权的工做，我们注册的task_name叫`user_feature_task`，实际执行时，不同业务线、需要不同的特征、不同的阈值和业务逻辑
+
+- 我们在实例化task时，可以给实例化的task取别名`task_alias_name`，每个task有不同的配置，不同流量下可以用不同的`task_alias_name`组合
+
+  task.yaml
+
+  ```
+  - task_alias_name: recall_task_base //别名
+    task_name: common_recall_task     //task名，同一个task可以根据别名实例化为不同的task实例
+    recall_server:  RecallServer      //下面是自定义的配置项
+    threshold_score: 100
+    recall_type: 20
+    recall_num: 200
+    recall_platform: xxx
+    score_cut: 100
+  
+  - task_alias_name: expose_task_base
+    task_name: expose_task
+    
+  - task_alias_name: user_feature_task_base
+    task_name: user_feature_task
+    
+  - task_alias_name: rank_task_base  // rank task 基线
+    task_name: rank_task
+    
+  - task_alias_name: rank_task_exp_deep_wide //同一个rank task，使用不同的策略
+    task_name: rank_task
+    threshold: 20
+    
+  - task_alias_name: mining_task_base
+    task_name: mining_task
+    
+  
+  ```
+
+  
+
+业务流量通过RPC请求进入服务后，进入业务线程，根据业务场景、抽样分流成不同的Flow，Flow绑定Scheduler，调度具体的业务算子，不同的scheduler可以通过task的不同组合实现线上流量的A/B Test，同一个task可以通过不同业务配置和别名（`alias_name`）在不同的scheduler中复用.  
+
+下面的scheduler
+
+Scheduler.yaml
+
+```
+- schedule_name: rec_for_video_base //基线，一次召回通过下面的几个task
+  skip_failure: 0
+  tasks:
+      - task_name: recall_task_base
+      - task_name: expose_task_base
+      - task_name: user_feature_task_base
+      - task_name: rank_task_base
+      - task_name: mining_task_base
+      
+- schedule_name: rec_for_video_exp1 //实验组1，一次召回通过下面的几个task，其中rank层做实验
+  skip_failure: 0
+  tasks:
+      - task_name: recall_task_base
+      - task_name: expose_task_base
+      - task_name: user_feature_task_base
+      - task_name: rank_task_exp_deep_wide.  //其他几个算子都一样，rank算子做实验策略
+      - task_name: mining_task_base
+```
+
+这里就可以看明白，可以通灵活的组合task，可以在多层做实验，组合成scheduler，满足线上分层正交实验需求
+
+如何区分业务场景呢？首先根据业务场景、实验流量配置flow.yaml
+
+分配业务平台、分流规则，例如可以取尾号、或者随机抽取，或者指定白名单
+
+```
+- platform: rec_for_xxx
+scenes:
+- scene_name: feed
+#tail:[0, 1, 2..., 9]
+#random:[0, 50, 1000] (5% | hash(guid) % mod) #set:[guid_1, guid_2, ..., guid_n] divider_type: tail
+flows:
+	- flow_id: 123
+	  scheduler_name: rec_for_video_base  //flow绑定的scheduler
+	  white_list:等等，可以根据flow自定义的配置参数
+	  
+	- flow_id:124
+	  scheduler_name: rev_for_video_exp1 //命中这一组命中实验
+	  whilte_list:
+	
+```
+
+
 
 # 抽样实验
 抽样实验，即在保证线上稳定性的条件下，抽取部分线上流量，供策略实验
@@ -31,15 +217,22 @@ C++的依赖管理一直以来是一个问题，项目使用CMake管理依赖，
 ## 流量切分
 一般线上抽样可以根据用户标识做处理，选定的用户标识可能是
 - 设备id
+
 - 账号id
+
 - ip
+
 - 和某些业务相关的，比如某个场景必中
 
   通用的做法是将线上流量均分到若干份（例如，10000份），通过hash算法，对用户标识取模（`hash(uid) % 10000`）  
-  ![单层实验](conf/sample.png)
-  一般情况下，抽样需要保证用户在一定时间内稳定中流量
+  ![单层实验](conf/sample.png)  
+
+  
+
+  - 一般情况下，抽样需要保证用户在一定时间内稳定中流量
 
 - 为用户提供稳定的效果，防止对体验造成伤害
+
 - 保持实验效果，用户需要经过一段时间的体验，才能对实验有稳定的反馈
   流量的切分关键在于hash算法的均衡性，流量比较大的情况下，一般是可以保证均衡（流量规模过小不能置信）
 
@@ -58,8 +251,9 @@ C++的依赖管理一直以来是一个问题，项目使用CMake管理依赖，
 
 通过这种分层，线上支持的实验个数将大大增加，线上的A/B评估实验，即实验组和对照组在多层之间是正交的，即在某一层流量也会均匀的分不到其他层上 
 
-![正交](conf/sample2.png)
-这样做的目的是为了消除其他实验对评估实验的影响， 具体说明如下：
+![正交](conf/sample2.png)  
+
+- 这样做的目的是为了消除其他实验对评估实验的影响， 具体说明如下：
 
 - 假定有实验1， 实验组exp_a和对照组base_a 各分配1%流量，做AB评估
 - 假定有实验2， 其和实验1不在同一个流量层，实验组other分配了2%的流量
