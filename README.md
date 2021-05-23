@@ -68,11 +68,11 @@ public:
       }
   
   		//假设这里是业务处理，惩罚特征对低质数据进行打压
-  		int punish_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
+    int punish_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
 					//do something
       }
   
-  		int get_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
+    int get_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
         //这里去发起RPC请求,请求一些服务，拿一些数据
         feature_prx_ptr = ::inf::rpc::BackendManager::instance().get_feature_server();
         Response feature_resp;
