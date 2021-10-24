@@ -38,13 +38,13 @@ UniTask是一套策略框架，适合推荐、搜索、广告等复杂业务场�
 ```c++
 class FeatureTask : public UnitTask {
 public:
-			virtual bool init(const YAML::Node &conf) {
+        virtual bool init(const YAML::Node &conf) {
         //初始化task,可以在这里初始化配置、业务组件等等
         //读一些配置,做初始化
         return true;
       }
   
-  		virtual	bool run(void* data) {
+        virtual	bool run(void* data) {
         //执行业务逻辑（对结果进行操作
         //传入的全局上下文数据data保存了所有需要的数据unique_ptr，为了能够在同一个一个数据结构里放下任何数据类型，通过泛型 + 继承，所有的泛型数据都需要继承TaskData的基类，然后通过基类指针拿到泛型指针，存取数据都是泛型接口
        
@@ -52,7 +52,7 @@ public:
         //将data转换为TaskDataMap
         ::inf::frame::TaskDataMap<std::string> *inner_dat
             static_cast<::inf::frame::TaskDataMap<std::string>*>(task_data);
-      	
+       
         //获取用户特征
         ::inf::frame::PersonalFeatureRequest * feature_data_req = 
           inner_data->find<::inf::frame::PersonalFeatureRequest>(USER_FEATURE_REQ_KEY);
@@ -67,9 +67,9 @@ public:
         
       }
   
-  		//假设这里是业务处理，惩罚特征对低质数据进行打压
-    int punish_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
-					//do something
+        //假设这里是业务处理，惩罚特征对低质数据进行打压
+        int punish_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
+        //do something
       }
   
     int get_user_feature(::inf::frame::PersonalFeatureResponse *resp) {
