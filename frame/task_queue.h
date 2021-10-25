@@ -10,7 +10,8 @@
 #include <utility>
 #include <unistd.h>
 
-
+namespace inf {
+namespace frame { 
 template <typename TaskType>
 class TaskQueue {
 public:
@@ -69,3 +70,6 @@ public:
     }
     
 };
+
+} // end namespace frame
+} // end namespace inf

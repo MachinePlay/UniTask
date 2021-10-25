@@ -7,7 +7,8 @@
 #include <condition_variable>
 #include <atomic>
 
-
+namespace inf {
+namespace frame { 
 /** 
  * @class BlockingQueue.
  * thread safe queue, when there is no Data left the thread will be sleep
@@ -76,3 +77,5 @@ private:
     /* atomic task. */
     std::atomic<int64_t>                _task_cnt;
 };
+} // end namespace frame
+} // end namespace inf 
