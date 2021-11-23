@@ -11,6 +11,7 @@ namespace frame{
  * inherented this class to implement specific platform Crator.
  **/
 class BaseTaskCreator {
+public:
     /* ctor. */
     BaseTaskCreator() = default;
     /* dtor. */
@@ -35,10 +36,10 @@ public:
      * create a standard task.
      * @return task
      **/
-    virtual TaskPtr create() override const {
+    virtual TaskPtr create() const override{
         return TaskPtr(new TaskType);
     }
-}
+};
 
 
 /** 

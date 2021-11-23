@@ -12,7 +12,7 @@ namespace frame {
  * abstract factory. register different task_type creator factory.
  * ProductType product = Creator.creat()
  **/
-tempalte <typename CreatorType,
+template <typename CreatorType,
           typename ProductType,
           typename KeyType = std::string>
 class Factory {
@@ -54,7 +54,7 @@ protected:
     */
     template<typename ConcreteCreatorType>
     bool _register(const KeyType& creator_key) {
-        auto it = _registered_table.find(reator_key);
+        auto it = _registered_table.find(creator_key);
         if (it == _registered_table.end()) {
             CreatorPtr creator = std::make_unique<ConcreteCreatorType>();
             _registered_table.insert(std::make_pair(creator_key, std::move(creator)));
@@ -69,7 +69,7 @@ protected:
 private:
     /* none copy. */
     Factory(const Factory &lhs) = delete;
-    Factory &opertor=(const Factory &lhs) = delete;
+    Factory &operator=(const Factory &lhs) = delete;
     
     /* registered Creator table. */
     CreatorTable _registered_table;

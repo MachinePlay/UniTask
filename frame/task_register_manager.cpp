@@ -3,7 +3,7 @@
 namespace inf {
 namespace frame {
 
-virtual bool RecTaskFactory::init() {
+bool RecTaskFactory::init() {
     //register task creator name here
     // const std::string USER_FEATURE_TASK = "user_feature_task";
     // const std::string COMMON_RECALL_TASK = "common_recall_task";
