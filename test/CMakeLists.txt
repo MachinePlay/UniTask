@@ -26,7 +26,7 @@ cmake_policy(SET CMP0077 NEW)
 # else()
 #     include (/usr/local/tars/cpp/makefile/tars-tools.cmake)
 # endif()
-set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+# set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
 include(FetchContent)
 # FetchContent_Declare(
 #   protobuf
